@@ -1,3 +1,14 @@
+This script is a basic test for the pyBKT (Bayesian Knowledge Tracing) model. 
+Purpose: The script creates synthetic data to simulate student responses, trains a Bayesian Knowledge Tracing model, and verifies that the model's implementation is functioning correctly.
+Libraries:
+numpy for numerical operations,
+pandas for data manipulation,
+matplotlib.pyplot for plotting,
+pyBKT for the Bayesian Knowledge Tracing model.
+
+
+
+
 ```python
 from torch.utils.data import TensorDataset, DataLoader
 
