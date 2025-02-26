@@ -1,26 +1,39 @@
-To run this DKVMN implementation, you'll need to follow these steps:
+# Running the DKVMN Implementation
 
-First, save the code to a Python file (e.g., dkvmn.py).
-Make sure you have the required dependencies installed:
+## Prerequisites
+To run this DKVMN implementation, follow these steps:
 
-bash: pip install torch numpy scikit-learn
+### 1. Save the Code
+Save the implementation to a Python file (e.g., `dkvmn.py`).
 
-For a quick test with the dummy data already included in the code, you can simply run:
+### 2. Install Dependencies
+Ensure you have the required dependencies installed by running:
 
-bash: python dkvmn.py
+```bash
+pip install torch numpy scikit-learn
+```
 
-This will execute the main() function, which creates a model with dummy data and runs 5 training epochs.
+## Running the Code
+For a quick test with the included dummy data, simply execute:
 
-To use it with your own educational data, you'll need to:
+```bash
+python dkvmn.py
+```
+This runs the `main()` function, creating a model with dummy data and training it for 5 epochs.
 
-a. Prepare your data in the right format:
-    Questions/skills represented as integers
-    Answers represented as 0 (incorrect) or 1 (correct)
-    Data organized in sequences (e.g., each student's interaction history)
+## Using Your Own Educational Data
+To apply this implementation to your dataset, follow these steps:
 
-b. Modify the main() function to load your own data:
+### 1. Prepare Your Data
+Ensure your data is formatted correctly:
+- **Questions/skills** represented as integers.
+- **Answers** represented as `0` (incorrect) or `1` (correct).
+- **Data** organized in sequences (e.g., each student's interaction history).
 
-# Replace the dummy data creation with your data loading
+### 2. Modify the `main()` Function to Load Your Data
+Replace the dummy data with your dataset:
+
+```python
 from torch.utils.data import TensorDataset, DataLoader
 
 # Load your data
@@ -32,20 +45,27 @@ a_data = your_answer_data
 train_dataset = TensorDataset(q_data, a_data)
 train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
 
-# You'd typically split into train/val/test
+# Split into train/validation/test
 from sklearn.model_selection import train_test_split
-# (add code for proper data splitting)
+# (Add code for proper data splitting)
+```
 
-Adjust the hyperparameters to match your dataset:
+### 3. Adjust Hyperparameters
+Modify the hyperparameters to match your dataset:
 
-# Set these to match your dataset
+```python
+# Set these based on your dataset
 num_questions = YOUR_TOTAL_QUESTION_COUNT
-dim_key = 64  # Can be tuned
-dim_value = 128  # Can be tuned
-dim_hidden = 64  # Can be tuned
+dim_key = 64  # Tunable
+dim_value = 128  # Tunable
+dim_hidden = 64  # Tunable
+```
 
-For a more complete training script, you would typically add:
+### 4. Enhance Training
+For a more complete training script, consider adding:
+- **Model checkpointing** to save the best model.
+- **Early stopping** based on validation loss.
+- **Learning rate scheduling** for better convergence.
 
-Model checkpointing to save the best model
-Early stopping based on validation loss
-Learning rate scheduling
+By following these steps, you can customize DKVMN for your own educational datasets efficiently.
+
