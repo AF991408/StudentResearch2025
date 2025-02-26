@@ -1,0 +1,62 @@
+PS C:\Users\footb> & C:/Users/footb/anaconda3/envs/pybkt_env/python.exe c:/Users/footb/Downloads/test_pybkt_thing.py
+Running pyBKT test...
+Step 1: Creating synthetic data...
+Created dataset with 500 rows
+   user_id   skill_name  correct  order_id
+0        0  basic_skill        0         0
+1        0  basic_skill        1         1
+2        0  basic_skill        1         2
+3        0  basic_skill        0         3
+4        0  basic_skill        1         4
+
+Step 2: Training BKT model...
+
+Step 3: Verifying model parameters...
+Learned parameters:
+                              value
+skill       param   class
+basic_skill prior   default 0.36846
+            learns  default 0.07721
+            guesses default 0.19806
+            slips   default 0.13433
+            forgets default 0.00000
+Error extracting parameters: 'param'
+Printing raw parameters structure:
+                              value
+skill       param   class
+basic_skill prior   default 0.36846
+            learns  default 0.07721
+            guesses default 0.19806
+            slips   default 0.13433
+            forgets default 0.00000
+
+Parameter check:
+Could not extract parameters in the expected format.
+This could be due to changes in the pyBKT API.
+Please check the params() output above for the actual structure.
+
+Step 4: Making predictions...
+Prediction examples:
+   user_id   skill_name  correct  order_id  correct_predictions  state_predictions
+0        0  basic_skill        0         0              0.44405            0.36846
+1        0  basic_skill        1         1              0.30445            0.15936
+2        0  basic_skill        1         2              0.52876            0.49535
+3        0  basic_skill        0         3              0.74922            0.82557
+4        0  basic_skill        1         4              0.52203            0.48527
+   user_id   skill_name  correct  correct_predictions
+0        0  basic_skill        0              0.44405
+1        0  basic_skill        1              0.30445
+2        0  basic_skill        1              0.52876
+3        0  basic_skill        0              0.74922
+4        0  basic_skill        1              0.52203
+
+Step 5: Evaluating model performance...
+Prediction accuracy: 0.7320
+
+Step 6: Visualizing learning curve...
+Error creating visualization: predict() got an unexpected keyword argument 'return_posteriors'
+
+Test completed!
+
+SUCCESS: pyBKT is correctly installed and functioning!
+PS C:\Users\footb> 
