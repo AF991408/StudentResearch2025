@@ -10,6 +10,10 @@ This script is a basic test for the `pyBKT` (Bayesian Knowledge Tracing) model.
 1. **Synthetic Data Creation**:  
    * The script starts by generating synthetic data for 50 students answering 10 questions related to a single skill.  
    * Each student has a 30% chance of knowing the skill initially. They can learn the skill with a 10% chance per question.
+   * The probability of answering correctly depends on whether the student knows the skill or not:  
+     * If they know the skill, they have a 90% chance of getting the answer correct (10% chance of a slip).  
+     * If they don’t know the skill, they have a 20% chance of guessing correctly.  
+   * The data is stored in a list of dictionaries, which is then converted into a Pandas DataFrame.
 ```python
 # Step 1: Create synthetic data
 print("Step 1: Creating synthetic data...")
@@ -26,11 +30,7 @@ data = []
 for student in range(num_students):
     # Logic for generating responses...
 
-```
-   * The probability of answering correctly depends on whether the student knows the skill or not:  
-     * If they know the skill, they have a 90% chance of getting the answer correct (10% chance of a slip).  
-     * If they don’t know the skill, they have a 20% chance of guessing correctly.  
-   * The data is stored in a list of dictionaries, which is then converted into a Pandas DataFrame.  
+``` 
 2. **Training the BKT Model**:  
    * The script initializes a `Model` instance from `pyBKT` and fits it using the synthetic data.  
 3. **Verifying Model Parameters**:  
