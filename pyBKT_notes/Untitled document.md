@@ -32,18 +32,46 @@ for student in range(num_students):
 
 ``` 
 2. **Training the BKT Model**:  
-   * The script initializes a `Model` instance from `pyBKT` and fits it using the synthetic data.  
+   * The script initializes a `Model` instance from `pyBKT` and fits it using the synthetic data.
+```python
+# Step 2: Train BKT model
+print("\nStep 2: Training BKT model...")
+model = Model()
+model.fit(data=df)
+``` 
 3. **Verifying Model Parameters**:  
    * After training, it retrieves the learned parameters (e.g., prior knowledge, learning probability, guessing probability, and slipping probability).  
-   * It checks if these parameters are reasonable based on expected values.  
+   * It checks if these parameters are reasonable based on expected values.
+```python
+# Step 3: Verify parameters
+print("\nStep 3: Verifying model parameters...")
+params = model.params()
+# Logic for checking parameter values...
+``` 
 4. **Making Predictions**:  
    * The model is used to make predictions on the synthetic dataset.  
-   * The predictions include whether each student answered each question correctly, and the results are displayed.  
+   * The predictions include whether each student answered each question correctly, and the results are displayed.
+```python
+# Step 4: Make predictions
+print("\nStep 4: Making predictions...")
+predictions = model.predict(data=df)
+# Logic for displaying predictions...
+```  
 5. **Evaluating Model Performance**:  
-   * The script calculates the prediction accuracy by comparing predicted answers to actual answers and displays the result.  
+   * The script calculates the prediction accuracy by comparing predicted answers to actual answers and displays the result.
+```python
+# Step 5: Evaluate model performance
+print("\nStep 5: Evaluating model performance...")
+# Logic for calculating accuracy...
+```  
 6. **Visualizing Learning Curve**:  
    * The script generates a plot of a specific student's learning trajectory over time.  
-   * It shows the probability of skill mastery (posterior) alongside the actual answers (correct/incorrect) to visualize how the student's knowledge develops.  
+   * It shows the probability of skill mastery (posterior) alongside the actual answers (correct/incorrect) to visualize how the student's knowledge develops.
+```python
+# Step 6: Visualize learning curve for a student
+print("\nStep 6: Visualizing learning curve...")
+# Logic for plotting the learning curve...
+```  
 7. **Error Handling**:  
    * The script includes error handling to manage any unexpected issues that arise during execution, such as problems with parameter extraction or plotting.
 
