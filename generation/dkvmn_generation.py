@@ -133,16 +133,15 @@ class DKVMN(nn.Module):
         
         return value_memory_updated
     
-    def forward(self, q, a):
-        """
-        Forward pass of the DKVMN model
+    def forward(self, q, a=None):
+        """Forward pass of the DKVMN model
         
         Parameters:
         -----------
         q: Tensor [batch_size, seq_len]
             Question sequence
-        a: Tensor [batch_size, seq_len]
-            Answer sequence (0 or 1)
+        a: Tensor [batch_size, seq_len] or None
+            Answer sequence (0 or 1), None during inference
             
         Returns:
         --------
@@ -150,17 +149,23 @@ class DKVMN(nn.Module):
             Prediction of the probability of answering correctly
         """
         batch_size, seq_len = q.shape
-        
+
         # Initialize value memory for the batch
         value_memory = self.value_memory.unsqueeze(0).repeat(batch_size, 1, 1)  # [batch_size, memory_size, dim_value]
         
         predictions = []
         
         for t in range(seq_len):
-            # Get question and answer at time t
+            # Get question at time t
             q_t = q[:, t]  # [batch_size]
-            a_t = a[:, t].unsqueeze(1)  # [batch_size, 1]
             
+            # Skip padding (question_id = 0)
+            if (q_t == 0).all():
+                # For padding positions, output zero predictions
+                pred = torch.zeros(batch_size, 1, device=q.device)
+                predictions.append(pred)
+                continue
+                
             # Get question embedding
             q_embed = self.question_embed(q_t)  # [batch_size, dim_key]
             
@@ -182,13 +187,17 @@ class DKVMN(nn.Module):
             
             predictions.append(pred)
             
-            # Update value memory
-            value_memory = self.write(correlation_weight, student_state, value_memory)
+            # If answers are provided (during training), update memory
+            if a is not None:
+                a_t = a[:, t].unsqueeze(1)  # [batch_size, 1]
+                
+                # Update value memory based on the correct answer
+                value_memory = self.write(correlation_weight, student_state, value_memory)
         
         # Stack predictions
         pred = torch.cat(predictions, dim=1)  # [batch_size, seq_len]
-        
         return pred
+    
 
 class DKVMNTrainer:
     def __init__(self, model, optimizer, criterion, device):
@@ -211,7 +220,7 @@ class DKVMNTrainer:
         self.criterion = criterion
         self.device = device
         
-    def train(self, train_loader, epochs):
+    def train(self, train_loader, epochs, val_loader=None):
         """
         Train the DKVMN model
         
@@ -221,17 +230,26 @@ class DKVMNTrainer:
             DataLoader for training data
         epochs: int
             Number of epochs to train
+        val_loader: DataLoader or None
+            DataLoader for validation data, if None, no validation is performed
             
         Returns:
         --------
-        losses: list
-            List of training losses
+        history: dict
+            Dictionary of training history
         """
-        self.model.train()
-        losses = []
-        
+        history = {
+            'train_loss': [],
+            'val_loss': [],
+            'val_accuracy': [],
+            'val_auc': []
+        }
+
         for epoch in range(epochs):
+            self.model.train()
             epoch_loss = 0
+            num_batches = 0
+            
             for batch_idx, (q_data, a_data) in enumerate(train_loader):
                 q_data = q_data.to(self.device)
                 a_data = a_data.to(self.device)
@@ -240,31 +258,77 @@ class DKVMNTrainer:
                 self.optimizer.zero_grad()
                 output = self.model(q_data, a_data)
                 
-                # Get the prediction for non-padding questions
+                # Create mask for non-padding positions
                 mask = (q_data != 0).float()
-                pred = output * mask
                 
-                # Get the target
-                target = a_data.float() * mask
+                # Apply mask to predictions and targets
+                masked_output = output * mask
+                masked_target = a_data.float() * mask
                 
-                # Compute loss
-                loss = self.criterion(pred, target)
-                
-                # Backward pass
-                loss.backward()
-                self.optimizer.step()
-                
-                epoch_loss += loss.item()
-                
-            epoch_loss /= (batch_idx + 1)
-            losses.append(epoch_loss)
-            print(f'Epoch: {epoch+1}, Loss: {epoch_loss:.4f}')
+                # Compute loss only on non-padding positions
+                valid_elements = mask.sum()
+                if valid_elements > 0:
+                    loss = self.criterion(masked_output, masked_target)
+                    
+                    # Backward pass
+                    loss.backward()
+                    self.optimizer.step()
+                    
+                    epoch_loss += loss.item()
+                    num_batches += 1
             
-        return losses
+            # Calculate average loss for the epoch
+            avg_epoch_loss = epoch_loss / max(1, num_batches)
+            history['train_loss'].append(avg_epoch_loss)
+            
+            print(f'Epoch: {epoch+1}/{epochs}, Train Loss: {avg_epoch_loss:.4f}', end='')
+            
+            # Validation if validation loader is provided
+            if val_loader is not None:
+                metrics = self.evaluate(val_loader)
+                val_loss = self.calculate_validation_loss(val_loader)
+                
+                history['val_loss'].append(val_loss)
+                history['val_accuracy'].append(metrics['accuracy'])
+                history['val_auc'].append(metrics['auc'])
+                
+                print(f', Val Loss: {val_loss:.4f}, Val Acc: {metrics["accuracy"]:.4f}, Val AUC: {metrics["auc"]:.4f}')
+            else:
+                print('')
+        return history
+
+    def calculate_validation_loss(self, val_loader):
+        """Calculate loss on validation set"""
+        self.model.eval()
+        total_loss = 0
+        num_batches = 0
+        
+        with torch.no_grad():
+            for q_data, a_data in val_loader:
+                q_data = q_data.to(self.device)
+                a_data = a_data.to(self.device)
+                
+                # Forward pass
+                output = self.model(q_data, a_data)
+                
+                # Create mask for non-padding positions
+                mask = (q_data != 0).float()
+                
+                # Apply mask to predictions and targets
+                masked_output = output * mask
+                masked_target = a_data.float() * mask
+                
+                # Compute loss only on non-padding positions
+                valid_elements = mask.sum()
+                if valid_elements > 0:
+                    loss = self.criterion(masked_output, masked_target)
+                    total_loss += loss.item()
+                    num_batches += 1
+        
+        return total_loss / max(1, num_batches)
     
     def evaluate(self, test_loader):
-        """
-        Evaluate the DKVMN model
+        """Evaluate the DKVMN model
         
         Parameters:
         -----------
@@ -274,11 +338,10 @@ class DKVMNTrainer:
         Returns:
         --------
         metrics: dict
-            Dictionary of evaluation metrics
-        """
+            Dictionary of evaluation metrics"""
         self.model.eval()
-        total_pred = []
-        total_target = []
+        all_preds = []
+        all_targets = []
         
         with torch.no_grad():
             for q_data, a_data in test_loader:
@@ -288,26 +351,49 @@ class DKVMNTrainer:
                 # Forward pass
                 output = self.model(q_data, a_data)
                 
-                # Get the prediction for non-padding questions
+                # Create a mask for valid questions (non-padding)
                 mask = (q_data != 0).float()
-                pred = output * mask
                 
-                # Get the target
-                target = a_data.float() * mask
+                # Store predictions and targets for valid positions only
+                preds = output.detach().cpu().numpy()
+                targets = a_data.detach().cpu().numpy()
                 
-                total_pred.append(pred.cpu().numpy())
-                total_target.append(target.cpu().numpy())
+                # Store only for non-padding positions
+                valid_preds = []
+                valid_targets = []
+                
+                for i in range(preds.shape[0]):  # For each student in the batch
+                    for j in range(preds.shape[1]):  # For each position in the sequence
+                        if mask[i, j] > 0:  # If not padding
+                            valid_preds.append(preds[i, j])
+                            valid_targets.append(targets[i, j])
+                
+                if valid_preds:
+                    all_preds.extend(valid_preds)
+                    all_targets.extend(valid_targets)
         
-        total_pred = np.concatenate(total_pred, axis=0)
-        total_target = np.concatenate(total_target, axis=0)
+        # Convert to numpy arrays
+        all_preds = np.array(all_preds)
+        all_targets = np.array(all_targets)
         
         # Calculate evaluation metrics
-        auc = self.calculate_auc(total_pred, total_target)
-        accuracy = self.calculate_accuracy(total_pred, total_target)
+        binary_preds = (all_preds >= 0.5).astype(int)
+        accuracy = np.mean(binary_preds == all_targets)
+        
+        # Calculate AUC if possible
+        try:
+            from sklearn.metrics import roc_auc_score
+            if len(np.unique(all_targets)) > 1:  # More than one class
+                auc = roc_auc_score(all_targets, all_preds)
+            else:
+                auc = 0.5  # Default AUC for single class
+        except:
+            auc = 0.0  # If sklearn is not available
         
         return {
             "auc": auc,
-            "accuracy": accuracy
+            "accuracy": accuracy,
+            "num_samples": len(all_targets)
         }
     
     def calculate_auc(self, pred, target):
@@ -318,8 +404,8 @@ class DKVMNTrainer:
         pred_flat = pred.flatten()
         target_flat = target.flatten()
         
-        # Remove padding
-        mask = (target_flat != 0) & (~np.isnan(pred_flat))
+        # Remove padding (where question_id is 0)
+        mask = (target_flat != -1)  # Changed from != 0 to != -1 since 0 is a valid answer
         pred_flat = pred_flat[mask]
         target_flat = target_flat[mask]
         
@@ -327,19 +413,19 @@ class DKVMNTrainer:
             return 0.5
         
         return roc_auc_score(target_flat, pred_flat)
-    
+
     def calculate_accuracy(self, pred, target):
         """Calculate accuracy"""
         # Flatten the arrays
         pred_flat = pred.flatten()
         target_flat = target.flatten()
         
-        # Remove padding
-        mask = (target_flat != 0) & (~np.isnan(pred_flat))
+        # Remove padding (where question_id is 0)
+        mask = (target_flat != -1)  # Changed from != 0 to != -1 since 0 is a valid answer
         pred_flat = pred_flat[mask]
         target_flat = target_flat[mask]
         
-        # Convert predictions to binary
+        # Convert predictions to binary (threshold at 0.5)
         pred_binary = (pred_flat >= 0.5).astype(int)
         
         # Calculate accuracy
@@ -354,6 +440,28 @@ def main():
     
     # Load the dataset
     train_loader, test_loader, num_questions = load_dataset(batch_size=32)
+    
+    # Create a validation set (use 20% of training data)
+    from torch.utils.data import random_split, DataLoader
+    
+    # Extract dataset from train_loader
+    train_dataset = train_loader.dataset
+    
+    # Determine sizes
+    val_size = len(train_dataset) // 5  # 20% of training data
+    train_size = len(train_dataset) - val_size
+    
+    # Split the dataset
+    train_subset, val_subset = random_split(
+        train_dataset, 
+        [train_size, val_size],
+        generator=torch.Generator().manual_seed(42)
+    )
+    
+    # Create new data loaders
+    batch_size = 32
+    train_loader = DataLoader(train_subset, batch_size=batch_size, shuffle=True)
+    val_loader = DataLoader(val_subset, batch_size=batch_size, shuffle=False)
     
     # Parameters
     dim_key = 64
@@ -371,17 +479,23 @@ def main():
     # Initialize trainer
     trainer = DKVMNTrainer(model, optimizer, criterion, device)
     
-    # Train model
+    # Train model with validation
     print("Training model...")
-    losses = trainer.train(train_loader, epochs=5)
+    history = trainer.train(train_loader, epochs=10, val_loader=val_loader)
     
-    # Evaluate model
-    print("Evaluating model...")
-    metrics = trainer.evaluate(test_loader)
-    print(f"AUC: {metrics['auc']:.4f}, Accuracy: {metrics['accuracy']:.4f}")
+    # Evaluate model on test set
+    print("\nEvaluating model on test set...")
+    test_metrics = trainer.evaluate(test_loader)
+    print(f"Test AUC: {test_metrics['auc']:.4f}, Test Accuracy: {test_metrics['accuracy']:.4f}")
+    print(f"Number of test samples: {test_metrics['num_samples']}")
     
     # You could also save the model for later use
-    torch.save(model.state_dict(), "dkvmn_model.pth")
+    torch.save({
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+        'history': history,
+        'test_metrics': test_metrics
+    }, "dkvmn_model.pth")
     print("Model saved to dkvmn_model.pth")
     
 if __name__ == "__main__":
