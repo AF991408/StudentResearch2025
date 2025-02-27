@@ -378,7 +378,7 @@ def main():
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     
     # Train model
-    losses = trainer.train(train_loader, epochs=5)
+    losses = trainer.train(train_loader, epochs=20)
     
     # Evaluate model
     metrics = trainer.evaluate(train_loader)
